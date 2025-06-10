@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator</title>
+  <style>
+    body { font-family: sans-serif; margin: 2em; }
+    #inputs { display: flex; gap: 1em; align-items: flex-start; }
+    textarea { width: 40vw; max-width: 1000px; }
+    button { margin-top: 0.5em; padding: 0.5em 1em; }
+    #results { margin-top: 2em; display: flex; flex-wrap: wrap; gap: 1em; }
+    figure { border: 1px solid #ccc; padding: 1em; border-radius: 4px; width: 220px; }
+    figure img { display: block; margin: 0 auto 0.5em; }
+    figcaption { font-weight: bold; margin-bottom: 0.5em; }
+    p { font-size: 0.9em; word-break: break-all; background: #f9f9f9; padding: 0.5em; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <h1>QR Code Generator</h1>
+  <div id="inputs">
+    <div>
+      <label for="url-input">Enter URLs (one per line):</label><br>
+      <textarea id="url-input" rows="6" placeholder="https://example.com/page1\nhttps://example.com/page2"></textarea>
+    </div>
+    <div>
+      <label for="title-input">Enter Page Titles (one per line):</label><br>
+      <textarea id="title-input" rows="6" placeholder="Page One Title\nPage Two Title"></textarea>
+    </div>
+  </div>
+  <button id="generate-btn">Generate QR Codes</button>
+  <section id="results"></section>
+
+  <script>
+    document.getElementById('generate-btn').addEventListener('click', async () => {
+      const urlLines = document.getElementById('url-input').value
+        .split('\n').map(u => u.trim()).filter(u => u);
+      const titleLines = document.getElementById('title-input').value
+        .split('\n').map(t => t.trim());
+      const results = document.getElementById('results');
+      results.innerHTML = '';
+
+      for (let i = 0; i < urlLines.length; i++) {
+        const url = urlLines[i];
+        let title = titleLines[i] || url;
+        if (!titleLines[i]) {
+          // optional fetch title if user didn't provide
+          try {
+            const resp = await fetch(url);
+            const text = await resp.text();
+            const doc = new DOMParser().parseFromString(text, 'text/html');
+            const t = doc.querySelector('title');
+            if (t) title = t.innerText;
+          } catch (e) {
+            console.warn('Could not fetch title for', url, e);
+          }
+        }
+
+        const imgSrc = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(url);
+        const figure = document.createElement('figure');
+        const img = document.createElement('img');
+        img.src = imgSrc;
+        img.alt = 'QR code for ' + title;
+
+        const figcaption = document.createElement('figcaption');
+        figcaption.textContent = title + ' (' + url + ')';
+
+        const p = document.createElement('p');
+        p.textContent = `<img src=\"${imgSrc}\" alt=\"QR code for ${title}\" />`;
+
+        figure.append(img, figcaption, p);
+        results.appendChild(figure);
+      }
+    });
+  </script>
+</body>
+</html>
