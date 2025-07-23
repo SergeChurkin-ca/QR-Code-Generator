@@ -10,11 +10,15 @@
     textarea { width: 40vw; max-width: 1000px; }
     button { margin-top: 0.5em; padding: 0.5em 1em; }
     #results { margin-top: 2em; display: flex; flex-wrap: wrap; gap: 1em; }
-    figure { border: 1px solid #ccc; padding: 1em; border-radius: 4px; width: 220px; }
+    figure { border: 1px solid #ccc; padding: 1em; border-radius: 4px; width: 220px; position: relative; }
     figure img { display: block; margin: 0 auto 0.5em; }
     figcaption { font-weight: bold; margin-bottom: 0.5em; }
     p { font-size: 0.9em; word-break: break-all; background: #f9f9f9; padding: 0.5em; border-radius: 4px; }
+    .download-btn { display: block; margin: 0.5em auto 0; }
   </style>
+  <!-- JSZip and FileSaver libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 </head>
 <body>
   <h1>QR Code Generator</h1>
@@ -29,15 +33,19 @@
     </div>
   </div>
   <button id="generate-btn">Generate QR Codes</button>
+  <button id="download-all-btn" disabled>Download All as ZIP</button>
   <section id="results"></section>
 
   <script>
-    document.getElementById('generate-btn').addEventListener('click', async () => {
+    const generateBtn = document.getElementById('generate-btn');
+    const downloadAllBtn = document.getElementById('download-all-btn');
+    const results = document.getElementById('results');
+
+    generateBtn.addEventListener('click', async () => {
       const urlLines = document.getElementById('url-input').value
         .split('\n').map(u => u.trim()).filter(u => u);
       const titleLines = document.getElementById('title-input').value
         .split('\n').map(t => t.trim());
-      const results = document.getElementById('results');
       results.innerHTML = '';
 
       for (let i = 0; i < urlLines.length; i++) {
@@ -70,6 +78,36 @@
 
         figure.append(img, figcaption, p);
         results.appendChild(figure);
+      }
+
+      downloadAllBtn.disabled = results.children.length === 0;
+    });
+
+    downloadAllBtn.addEventListener('click', async () => {
+      const zip = new JSZip();
+      const figures = results.querySelectorAll('figure');
+
+      for (const fig of figures) {
+        const img = fig.querySelector('img');
+        const url = img.src;
+        // derive filename from title, sanitize illegal chars
+        let filename = fig.querySelector('figcaption').textContent.split(' (')[0];
+        filename = filename.replace(/[\\/:*?"<>|]+/g, '_') + '.png';
+
+        try {
+          const resp = await fetch(url);
+          const blob = await resp.blob();
+          zip.file(filename, blob);
+        } catch (e) {
+          console.error('Failed to fetch image for', filename, e);
+        }
+      }
+
+      try {
+        const content = await zip.generateAsync({ type: 'blob' });
+        saveAs(content, 'qr-codes.zip');
+      } catch (e) {
+        console.error('Failed to generate zip', e);
       }
     });
   </script>
